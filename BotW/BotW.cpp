@@ -41,7 +41,6 @@ int main()
 
 
     bot.getEvents().onAnyMessage([&bot](TgBot::Message::Ptr message) {
-
         if (message->text == "Начать") {
             if (!isWorking && !onBreak) {
                 workStart = std::chrono::system_clock::now();
@@ -57,7 +56,6 @@ int main()
                 onBreak = true;
                 breakStart = now;
                 bot.getApi().sendMessage(message->chat->id, "Перерыв начался.");
-
                 std::this_thread::sleep_for(std::chrono::hours(1));
                 bot.getApi().sendMessage(message->chat->id, "Перерыв закончился. Возобновите работу командой 'Начать'.");
                 onBreak = false;
