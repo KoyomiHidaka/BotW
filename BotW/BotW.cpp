@@ -1,6 +1,8 @@
-﻿#include <iostream>
+#include <iostream>
 #include <tgbot/tgbot.h>
 #include <unordered_map>
+#include <chrono>
+#include <ctime>
 #pragma execution_character_set("utf-8")
 
 bool inRunning = true;
@@ -8,11 +10,14 @@ using namespace TgBot;
 using namespace std;
 
 const int64_t adminid = 869613280;
+
 chrono::time_point<std::chrono::system_clock> workStart;
 chrono::time_point<std::chrono::system_clock> breakStart;
 bool isWorking = false;
 bool onBreak = false;
 chrono::milliseconds totalWorkTime(0);
+
+
 
 
 void startBreak(Bot& bot, int64_t chatId) {
@@ -37,6 +42,8 @@ int main()
         bot.getApi().sendMessage(message->chat->id, "Кнопка начать - начнет отчет проведенного времени работы\n Кнопка стоп - Приостановит время и начнет новый таймер отдыха", false, 0, keyboard);
 
         });
+
+
     int64_t lastUpdateId = 0;
     vector<Update::Ptr> updates = bot.getApi().getUpdates();
     for (const auto& update : updates) {
@@ -69,8 +76,31 @@ int main()
         });
 
 
+    bot.getEvents().onAnyMessage([&bot](TgBot::Message::Ptr message) {
 
+        if (message->text == "Начать") {
+            if (!isWorking && !onBreak) {
+                workStart = std::chrono::system_clock::now();
+                isWorking = true;
+                bot.getApi().sendMessage(message->chat->id, "Работа началась.");
+            }
+        }
+        else if (message->text == "Взять перерыв") {
+            if (isWorking) {
+                auto now = std::chrono::system_clock::now();
+                totalWorkTime += std::chrono::duration_cast<std::chrono::milliseconds>(now - workStart);
+                isWorking = false;
+                onBreak = true;
+                breakStart = now;
+                bot.getApi().sendMessage(message->chat->id, "Перерыв начался.");
 
+                std::this_thread::sleep_for(std::chrono::hours(1));
+                bot.getApi().sendMessage(message->chat->id, "Перерыв закончился. Возобновите работу командой 'Начать'.");
+                onBreak = false;
+            }
+        }
+    });
+    
 
 
     bot.getEvents().onCommand("stop", [&bot, &startingi](Message::Ptr message) {
@@ -82,7 +112,7 @@ int main()
         else {
             bot.getApi().sendMessage(message->chat->id, "У вас недостаточно прав для совершения данной операции");
         }
-        });
+    });
 
     try {
         printf("Bot username: %s\n", bot.getApi().getMe()->username.c_str());
