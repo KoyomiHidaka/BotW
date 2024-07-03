@@ -8,7 +8,19 @@ using namespace TgBot;
 using namespace std;
 
 const int64_t adminid = 869613280;
+chrono::time_point<std::chrono::system_clock> workStart;
+chrono::time_point<std::chrono::system_clock> breakStart;
+bool isWorking = false;
+bool onBreak = false;
+chrono::milliseconds totalWorkTime(0);
 
+
+void startBreak(Bot& bot, int64_t chatId) {
+    this_thread::sleep_for(std::chrono::minutes(50));
+    bot.getApi().sendMessage(chatId, "Перерыв окончится через 10 минут.");
+    this_thread::sleep_for(std::chrono::minutes(10));
+    bot.getApi().sendMessage(chatId, "Перерыв закончился. Возобновите работу командой 'Начать'.");
+    onBreak = false;
 
 int main()
 {
@@ -23,6 +35,7 @@ int main()
         keyboard->keyboard.push_back({ button1, button2 });
         keyboard->oneTimeKeyboard = true;
         bot.getApi().sendMessage(message->chat->id, "Кнопка начать - начнет отчет проведенного времени работы\n Кнопка стоп - Приостановит время и начнет новый таймер отдыха", false, 0, keyboard);
+
         });
     int64_t lastUpdateId = 0;
     vector<Update::Ptr> updates = bot.getApi().getUpdates();
@@ -31,6 +44,29 @@ int main()
             lastUpdateId = update->updateId;
         }
     }
+
+    bot.getEvents().onAnyMessage([&bot](Message::Ptr message) {
+        if (message->text == "Начать") {
+            if (!isWorking && !onBreak) {
+                workStart = std::chrono::system_clock::now();
+                isWorking = true;
+                bot.getApi().sendMessage(message->chat->id, "Работа началась.");
+            }
+        }
+        else if (message->text == "Взять перерыв") {
+            if (isWorking) {
+                auto now = std::chrono::system_clock::now();
+                totalWorkTime += std::chrono::duration_cast<std::chrono::milliseconds>(now - workStart);
+                isWorking = false;
+                onBreak = true;
+                breakStart = now;
+                bot.getApi().sendMessage(message->chat->id, "Перерыв начался.");
+
+                // Запускаем отдельный поток для отсчета времени перерыва
+                std::thread(startBreak, std::ref(bot), message->chat->id).detach();
+            }
+        }
+        });
 
 
 
